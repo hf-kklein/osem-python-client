@@ -121,9 +121,9 @@ class TestClient:
                     ],
                     "model": "homeV2EthernetFeinstaub",
                     "lastMeasurementAt": "2023-12-18T13:06:48.018Z",
-                    "description": "SenseBox der GSD Sachunterricht unter besonderer Berücksichtigung von Naturwissenschaft und Technik \nder Universität Leipzig an der Erziehungswissenschaftliche Fakultät.\n\nDie SenseBox befindet sich an der Wand des grauen Gebäudes (siehe Bild). Sie ist somit direkter Sonneneinstrahlung ausgesetzt.",
+                    "description": "SenseBox der GSD Sachunterricht unter besonderer Berücksichtigung von ...",
                     "image": "621f53cdb527de001b06ad5e_rrlwm9.jpg",
-                    "weblink": "https://www.erzwiss.uni-leipzig.de/institut-fuer-paedagogik-und-didaktik-im-elementar-und-primarbereich/professur-fuer-grundschuldidaktik-sachunterricht-naturwissenschaft-und-technik/schulgarten",
+                    "weblink": "https://www.erzwiss.uni-leipzig.de/institut-fuer-paedagogik-und-didaktik-im-...",
                     "loc": [
                         {
                             "geometry": {

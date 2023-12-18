@@ -17,7 +17,7 @@ class SensorMetadata(BaseModel):
     title: str  #: name of the sensor (or phenomenon in German, mostly)
     unit: str  #: unit of the measurement, e.g. "°C"
     sensor_type: str = Field(alias="sensorType")  #: type of the sensor, e.g. "HDC1080"
-    # there are more properties that are not relevant to us yet
+    # there are more properties that are not relevant to us yet; todo: add them
 
 
 class Box(BaseModel):
@@ -28,7 +28,7 @@ class Box(BaseModel):
 
     id: str = Field(alias="_id")  #: unique ID of thise sensebox, e.g. "621f53cdb527de001b06ad5e"
 
-    # there are more properties that are not relevant to us yet
+    # there are more properties that are not relevant to us yet; todo: add them
     sensors: list[SensorMetadata]  #: list of sensors that are installed in this sensebox
 
 
@@ -39,12 +39,12 @@ class Measurement(BaseModel):
     https://api.opensensemap.org/boxes/:senseBoxId/data/:sensorId?from-date=fromDate&to-date=toDate
     """
 
-    # missing location (we don't care yet)
+    # todo: missing location
     created_at: datetime = Field(alias="createdAt")  #: point in time when the measurement was taken
     value: str  #: the measurement value (needs to be associated with the unit from SensorMetadata); always a string
 
 
-class _Measurements(RootModel[list[Measurement]]):
+class _Measurements(RootModel[list[Measurement]]):  # pylint:disable=too-few-public-methods
     """
     The array that is returned by
     https://api.opensensemap.org/boxes/:senseBoxId/data/:sensorId?from-date=fromDate&to-date=toDate
