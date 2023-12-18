@@ -1,5 +1,5 @@
 """
-This package contains the data models exposed by the API.
+This module contains the data models exposed by the API.
 Those are handcrafted as of now, but could be generated from the OpenSenseMap API schema.
 """
 
