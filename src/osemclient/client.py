@@ -8,7 +8,7 @@ from typing import Optional
 from aiohttp import ClientSession, TCPConnector
 from yarl import URL
 
-from src.osemclient.models import Box, Measurement, _Measurements
+from osemclient.models import Box, Measurement, _Measurements
 
 _logger = logging.getLogger(__name__)
 
