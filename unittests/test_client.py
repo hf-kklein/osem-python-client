@@ -3,7 +3,7 @@ from datetime import datetime
 import pytz
 from aioresponses import aioresponses
 
-from osemclient import OpenSenseMapClient
+from osemclient.client import OpenSenseMapClient
 
 _berlin = pytz.timezone("Europe/Berlin")
 
