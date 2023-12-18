@@ -1,10 +1,10 @@
 [project]
-name = "your-favourite-package-name"
-description = "Description of your package"
+name = "osemclient"
+description = "aiohttp-based client for OpenSenseMap API"
 license = { text = "MIT" }
 requires-python = ">=3.11"
 authors = [{ name = "your name", email = "your@email.address" }]
-keywords = ["your", "important", "keywords"]
+keywords = ["osem", "aiohttp", "async", "opensensemap"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -16,12 +16,15 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
-dependencies = []     # add all the dependencies from requirements.in here, too
+dependencies = [
+    "pydantic", # for the model classes
+    "aiohttp"  # for the HTTP client
+] # add all the dependencies from requirements.in here, too
 dynamic = ["readme", "version"]
 
 [project.urls]
-Changelog = "https://github.com/Hochfrequenz/python_template_repository/releases"
-Homepage = "https://github.com/Hochfrequenz/python_template_repository"
+Changelog = "https://github.com/hf-kklein/osem-python-client/releases"
+Homepage = "https://github.com/hf-kklein/osem-python-client"
 
 [tool.black]
 line-length = 120
@@ -32,6 +35,12 @@ profile = "black"
 
 [tool.pylint."MESSAGES CONTROL"]
 max-line-length = 120
+
+[tool.pytest.ini_options]
+# When the mode is auto, all discovered async tests are considered asyncio-driven
+# even if they have no @pytest.mark.asyncio marker.
+# https://github.com/pytest-dev/pytest-asyncio#auto-mode
+asyncio_mode = "auto"
 
 [build-system]
 requires = ["hatchling>=1.8.0", "hatch-vcs", "hatch-fancy-pypi-readme"]
