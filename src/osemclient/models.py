@@ -5,7 +5,7 @@ Those are handcrafted as of now, but could be generated from the OpenSenseMap AP
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field, RootModel
+from pydantic import BaseModel, Field, RootModel, computed_field
 
 
 class SensorMetadata(BaseModel):
@@ -55,3 +55,12 @@ class MeasurementWithSensorMetadata(Measurement, SensorMetadata):
     """
     A measurement with the associated sensor metadata.
     """
+
+    @computed_field(return_type=str)
+    @property
+    def sensor_id(self):
+        """
+        sensor_id is more readable than then plain (implicit) id. The latter makes sense when you only retrieve sensors,
+        but together with the actual measurement data, it might be clearer to use explicit sensor_id.
+        """
+        return self.id
