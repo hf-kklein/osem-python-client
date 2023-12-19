@@ -252,3 +252,4 @@ class TestClient:
             assert all(3 > float(x.value) > 2 for x in results if x.unit == "°C")
             assert all(100 > float(x.value) > 99 for x in results if x.unit == "%")
             assert all(x.sensor_id == x.id for x in results)
+            assert all(x.sensebox_id == "621f53cdb527de001b06ad5e" for x in results)

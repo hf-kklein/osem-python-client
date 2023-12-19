@@ -86,7 +86,7 @@ class OpenSenseMapClient:
         _logger.debug("Retrieved %i measurement series for sensors of box %s", len(sensor_measurements), sensebox_id)
         results = [
             MeasurementWithSensorMetadata.model_validate(
-                {**sensor.dict(by_alias=True), **measurement.dict(by_alias=True)}
+                {**sensor.dict(by_alias=True), **measurement.dict(by_alias=True), "senseboxId": box.id}
             )
             for sensor, sensor_measurement_list in zip(box.sensors, sensor_measurements)
             for measurement in sensor_measurement_list

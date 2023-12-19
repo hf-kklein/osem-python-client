@@ -56,6 +56,8 @@ class MeasurementWithSensorMetadata(Measurement, SensorMetadata):
     A measurement with the associated sensor metadata.
     """
 
+    sensebox_id: str = Field(alias="senseboxId")  #: ID of the sensebox to which the sensor belongs
+
     @computed_field(return_type=str)
     def sensor_id(self):
         """
