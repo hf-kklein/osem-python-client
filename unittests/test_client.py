@@ -251,3 +251,4 @@ class TestClient:
             # assert the correct sensors are associated with their respective data
             assert all(3 > float(x.value) > 2 for x in results if x.unit == "°C")
             assert all(100 > float(x.value) > 99 for x in results if x.unit == "%")
+            assert all(x.sensor_id == x.id for x in results)
