@@ -1,5 +1,5 @@
 # osem-python-client
-`osemclient` is an async Python client for the OpenSenseMap REST API.
+`osemclient` is an async Python client with fully typed model classes for the OpenSenseMap REST API.
 It is based on aiohttp and Pydantic.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
