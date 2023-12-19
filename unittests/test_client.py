@@ -16,7 +16,7 @@ class TestClient:
     async def test_get_sensebox(self):
         with aioresponses() as mocked_api:
             mocked_api.get(
-                "https://api.opensensemap.org/621f53cdb527de001b06ad5e",
+                "https://api.opensensemap.org/boxes/621f53cdb527de001b06ad5e",
                 status=200,
                 payload={
                     "_id": "621f53cdb527de001b06ad5e",
@@ -146,7 +146,7 @@ class TestClient:
         with aioresponses() as mocked_api:
             mocked_api.get(
                 # pylint:disable=line-too-long
-                "https://api.opensensemap.org/621f53cdb527de001b06ad5e/data/621f53cdb527de001b06ad69?format=json&from-date=2023-12-15T08-00-00.000000Z&to-date=2023-12-15T08-05-00.000000Z",
+                "https://api.opensensemap.org/boxes/621f53cdb527de001b06ad5e/data/621f53cdb527de001b06ad69?format=json&from-date=2023-12-15T08-00-00.000000Z&to-date=2023-12-15T08-05-00.000000Z",
                 status=200,
                 payload=[
                     {"location": [12.353332, 51.340222], "createdAt": "2023-12-15T08:04:42.215Z", "value": "2.63"},

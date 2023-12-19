@@ -37,19 +37,19 @@ class OpenSenseMapClient:
         """
         retrieves single sensebox metadata
         """
-        url = _BASE_URL / sensebox_id
+        url = _BASE_URL / "boxes" / sensebox_id
         async with self._session.get(url) as response:
             result = Box(**await response.json())
             _logger.debug("Retrieved sensebox %s", sensebox_id)
             return result
 
     async def get_measurements(
-        self, sensebox_id: str, sensor_id: str, from_date: Optional[datetime], to_date: Optional[datetime]
+        self, sensebox_id: str, sensor_id: str, from_date: Optional[datetime] = None, to_date: Optional[datetime] = None
     ) -> list[Measurement]:
         """
         retrieve measurements for the given box and sensor id
         """
-        url = _BASE_URL / sensebox_id / "data" / sensor_id
+        url = _BASE_URL / "boxes" / sensebox_id / "data" / sensor_id
         query_params: dict[str, str] = {"format": "json"}
         if from_date is not None:
             if from_date.tzinfo is None:
