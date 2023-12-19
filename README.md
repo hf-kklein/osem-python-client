@@ -2,10 +2,15 @@
 `osemclient` is an async Python client for the OpenSenseMap REST API.
 It is based on aiohttp and Pydantic.
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![PyPI status badge](https://img.shields.io/pypi/v/osemclient)
+![Python Versions (officially) supported](https://img.shields.io/pypi/pyversions/osemclient.svg)
+
 ![Unittests status badge](https://github.com/hf-kklein/osem-python-client/workflows/Unittests/badge.svg)
 ![Coverage status badge](https://github.com//hf-kklein/osem-python-client/workflows/Coverage/badge.svg)
 ![Linting status badge](https://github.com/hf-kklein/osem-python-client/workflows/Linting/badge.svg)
 ![Black status badge](https://github.com/hf-kklein/osem-python-client/workflows/Formatting/badge.svg)
+
 
 ## Usage
 ```bash
