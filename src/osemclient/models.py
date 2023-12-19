@@ -36,13 +36,14 @@ class SensorMetadata(BaseModel):
     """the latest measurement of one of the sensors of this senseBox"""
 
 
-class Coordinates(BaseModel):
+class Location(BaseModel):
     """
-    coordinates of a sense box
+    location of a sense box
     """
 
     type: str  #: e.g. "Point"
     coordinates: list[Decimal | int]
+    timestamp: datetime
 
     @computed_field(return_type=float)
     def longitude(self):
@@ -88,7 +89,7 @@ class Box(BaseModel):
     grouptags: Optional[list[str]] = Field(alias="grouptag", default=None)  #: the grouptags of this senseBox
     image: Optional[str] = None  #: image showing the senseBox, e.g. '60a9114b6fedc6001b9ddd1d_qtk9d7.jpg'
     sensors: list[SensorMetadata]  #: list of sensors that are installed in this sensebox
-    current_location: Coordinates = Field(alias="currentLocation")  #: location of the senseBox
+    current_location: Location = Field(alias="currentLocation")  #: location of the senseBox
 
 
 class _Measurements(RootModel[list[Measurement]]):  # pylint:disable=too-few-public-methods
