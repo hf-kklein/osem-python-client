@@ -24,7 +24,7 @@ async def get_recent_measurements(sensebox_id: str):
     client = OpenSenseMapClient()
     box = await client.get_sensebox(sensebox_id)
     sensor_tasks: list[Awaitable[list[Measurement]]] = [
-        client.get_measurements(box.id, sensor.id) for sensor in box.sensors
+        client.get_sensor_measurements(box.id, sensor.id) for sensor in box.sensors
     ]
     measurement_series = await asyncio.gather(*sensor_tasks)
     await client.close_session()

@@ -1,14 +1,15 @@
 """
 This a docstring for the module.
 """
+import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Awaitable, Optional
 
 from aiohttp import ClientSession, TCPConnector
 from yarl import URL
 
-from osemclient.models import Box, Measurement, _Measurements
+from osemclient.models import Box, Measurement, MeasurementWithSensorMetadata, _Measurements
 
 _logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ _BASE_URL = URL("https://api.opensensemap.org/")
 
 def _to_osem_dateformat(dt: datetime) -> str:
     # OSeM needs the post-decimal places in the ISO/RFC3339 format
-    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S.%fZ")
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 
 class OpenSenseMapClient:
@@ -43,7 +44,7 @@ class OpenSenseMapClient:
             _logger.debug("Retrieved sensebox %s", sensebox_id)
             return result
 
-    async def get_measurements(
+    async def get_sensor_measurements(
         self, sensebox_id: str, sensor_id: str, from_date: Optional[datetime] = None, to_date: Optional[datetime] = None
     ) -> list[Measurement]:
         """
@@ -66,6 +67,31 @@ class OpenSenseMapClient:
                 "Retrieved %i measurements for box %s and sensor %s", len(results.root), sensebox_id, sensor_id
             )
             return results.root
+
+    async def get_measurements_with_sensor_metadata(
+        self, sensebox_id: str, from_date: Optional[datetime] = None, to_date: Optional[datetime] = None
+    ) -> list[MeasurementWithSensorMetadata]:
+        """
+        Returns all the box measurements in the given time range (or the APIs default if not specified).
+        Other than the get_sensor_measurements method, to use this method you don't have to specify the sensor id.
+        Also, the return values are annotated with the phenomenon measured.
+        The result is not sorted in a specific way.
+        """
+        box = await self.get_sensebox(sensebox_id=sensebox_id)
+        sensor_tasks: list[Awaitable[list[Measurement]]] = [
+            self.get_sensor_measurements(box.id, sensor.id, from_date=from_date, to_date=to_date)
+            for sensor in box.sensors
+        ]
+        sensor_measurements = await asyncio.gather(*sensor_tasks)
+        _logger.debug("Retrieved %i measurement series for sensors of box %s", len(sensor_measurements), sensebox_id)
+        results = [
+            MeasurementWithSensorMetadata.model_validate(
+                {**sensor.dict(by_alias=True), **measurement.dict(by_alias=True)}
+            )
+            for sensor, sensor_measurement_list in zip(box.sensors, sensor_measurements)
+            for measurement in sensor_measurement_list
+        ]
+        return results
 
     async def close_session(self):
         """

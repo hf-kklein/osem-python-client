@@ -49,3 +49,9 @@ class _Measurements(RootModel[list[Measurement]]):  # pylint:disable=too-few-pub
     The array that is returned by
     https://api.opensensemap.org/boxes/:senseBoxId/data/:sensorId?from-date=fromDate&to-date=toDate
     """
+
+
+class MeasurementWithSensorMetadata(Measurement, SensorMetadata):
+    """
+    A measurement with the associated sensor metadata.
+    """
