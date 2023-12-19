@@ -57,7 +57,6 @@ class MeasurementWithSensorMetadata(Measurement, SensorMetadata):
     """
 
     @computed_field(return_type=str)
-    @property
     def sensor_id(self):
         """
         sensor_id is more readable than then plain (implicit) id. The latter makes sense when you only retrieve sensors,
