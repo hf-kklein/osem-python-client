@@ -61,11 +61,14 @@ class Location(BaseModel):
         """
         return self.coordinates[1]
 
-    @computed_field(return_type=int)
+    @computed_field(return_type=Optional[int])
     def altitude(self):
         """meters above sea level"""
         # todo: really?
-        return self.coordinates[2]
+        try:
+            return self.coordinates[2]
+        except IndexError:
+            return None
 
 
 class Box(BaseModel):
