@@ -81,10 +81,10 @@ class Box(BaseModel):
     last_measurement_at: datetime = Field(
         alias="lastMeasurementAt"
     )  #: timestamp of the lastest measurement of one of the sensors of this senseBox
-    weblink: Optional[str] = None  #: 	external weblink
+    weblink: Optional[str] = None  #: external weblink
     description: Optional[str] = None  #: detailed description of the senseBox
-    created_at: datetime = Field(alias="createdAt")  #: timestamp of the creation date of the senseBox
-    updated_at: datetime = Field(alias="updatedAt")  #: timestamp of the lastUpdate of the senseBox
+    created_at: datetime = Field(alias="createdAt")  #: timestamp of the creation of the senseBox
+    updated_at: datetime = Field(alias="updatedAt")  #: timestamp of the last update of the senseBox
     grouptags: Optional[list[str]] = Field(alias="grouptag", default=None)  #: the grouptags of this senseBox
     image: Optional[str] = None  #: image showing the senseBox, e.g. '60a9114b6fedc6001b9ddd1d_qtk9d7.jpg'
     sensors: list[SensorMetadata]  #: list of sensors that are installed in this sensebox
