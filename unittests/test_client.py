@@ -141,7 +141,7 @@ class TestClient:
             sensebox = await client.get_sensebox("621f53cdb527de001b06ad5e")
             assert sensebox.id == "621f53cdb527de001b06ad5e"
             assert len(sensebox.sensors) == 11
-            assert sensebox.current_location.altitude is None
+            assert sensebox.current_location.coordinate is not None
 
     async def test_get_sensor_measurements(self):
         with aioresponses() as mocked_api:
