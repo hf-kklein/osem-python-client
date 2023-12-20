@@ -6,6 +6,7 @@ import pytz
 from aioresponses import aioresponses
 
 from osemclient.client import OpenSenseMapClient
+
 from .example_payloads.measurements import (
     measurements_621f53cdb527de001b06ad68_2023_12_15,
     measurements_621f53cdb527de001b06ad69_2023_12_15,
