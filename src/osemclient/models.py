@@ -8,6 +8,7 @@ from decimal import Decimal
 from typing import Optional
 
 from pydantic import BaseModel, Field, RootModel, computed_field
+from pydantic_extra_types.coordinate import Coordinate, Latitude, Longitude
 
 
 class Measurement(BaseModel):
@@ -42,31 +43,38 @@ class Location(BaseModel):
     """
 
     type: str  #: e.g. "Point"
-    coordinates: list[Decimal | int]
+    raw_coordinates: list[Decimal | int] = Field(alias="coordinates")  #: e.g. [12.45451, 51.152005]
     timestamp: datetime
 
-    @computed_field(return_type=float)
+    @computed_field(return_type=Longitude)
     def longitude(self):
         """
         longitude, e.g. 12.45451
         :return:
         """
-        return self.coordinates[0]
+        return Longitude(self.raw_coordinates[0])
 
-    @computed_field(return_type=float)
+    @computed_field(return_type=Latitude)
     def latitude(self):
         """
         latitude, e.g. 51.152005
         :return:
         """
-        return self.coordinates[1]
+        return Latitude(self.raw_coordinates[1])
+
+    @computed_field(return_type=Coordinate)
+    def coordinate(self):
+        """
+        coordinate in a pydantic coordinate format
+        """
+        return Coordinate(latitude=self.latitude, longitude=self.longitude)
 
     @computed_field(return_type=Optional[int])
     def altitude(self):
         """meters above sea level"""
         # todo: really?
         try:
-            return self.coordinates[2]
+            return self.raw_coordinates[2]
         except IndexError:
             return None
 
