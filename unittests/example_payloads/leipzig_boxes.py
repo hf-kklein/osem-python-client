@@ -1,3 +1,4 @@
+# pylint:disable=line-too-long, too-many-lines
 leipzig_boxes = [
     {
         "_id": "56ad11da2cb6e1e410455f05",
