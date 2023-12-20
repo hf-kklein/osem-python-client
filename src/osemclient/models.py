@@ -52,7 +52,7 @@ class Location(BaseModel):
         longitude, e.g. 12.45451
         :return:
         """
-        return Longitude(self.raw_coordinates[0])
+        return Longitude(self.raw_coordinates[0])  # pylint:disable=unsubscriptable-object
 
     @computed_field(return_type=Latitude)
     def latitude(self):
@@ -60,7 +60,7 @@ class Location(BaseModel):
         latitude, e.g. 51.152005
         :return:
         """
-        return Latitude(self.raw_coordinates[1])
+        return Latitude(self.raw_coordinates[1])  # pylint:disable=unsubscriptable-object
 
     @computed_field(return_type=Coordinate)
     def coordinate(self):
@@ -74,7 +74,7 @@ class Location(BaseModel):
         """meters above sea level"""
         # todo: really?
         try:
-            return self.raw_coordinates[2]
+            return self.raw_coordinates[2]  # pylint:disable=unsubscriptable-object
         except IndexError:
             return None
 
