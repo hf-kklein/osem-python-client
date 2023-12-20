@@ -55,6 +55,7 @@ class OpenSenseMapClient:
             "full": "true",
         }
         url = _BASE_URL / "boxes" % query_params
+        _logger.info("Downloading all boxes between %s and %s", southwest, northeast)
         async with self._session.get(url) as response:
             result = _Boxes.model_validate(await response.json())
             _logger.debug("Retrieved %d senseboxes", len(result.root))
@@ -84,13 +85,19 @@ class OpenSenseMapClient:
             )
             return results.root
 
-    async def get_measurements_with_sensor_metadata(
-        self, sensebox_id: str, from_date: Optional[datetime] = None, to_date: Optional[datetime] = None
+    async def get_measurements_with_sensor_metadata( # pylint:disable=too-many-arguments
+        self,
+        sensebox_id: str,
+        from_date: Optional[datetime] = None,
+        to_date: Optional[datetime] = None,
+        allowed_units: Optional[set[str]] = None,
+        allowed_phenomena: Optional[set[str]] = None,
     ) -> list[MeasurementWithSensorMetadata]:
         """
         Returns all the box measurements in the given time range (or the APIs default if not specified).
         Other than the get_sensor_measurements method, to use this method you don't have to specify the sensor id.
         Also, the return values are annotated with the phenomenon measured.
+        You can also specify a list of allowed units and phenomena to filter the results.
         The result is not sorted in a specific way.
         """
         box = await self.get_sensebox(sensebox_id=sensebox_id)
@@ -106,6 +113,8 @@ class OpenSenseMapClient:
             )
             for sensor, sensor_measurement_list in zip(box.sensors, sensor_measurements)
             for measurement in sensor_measurement_list
+            if (allowed_units is None or sensor.unit in allowed_units)
+            and (allowed_phenomena is None or sensor.title in allowed_phenomena)
         ]
         return results
 

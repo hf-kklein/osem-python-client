@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 
 import pytest
 import pytz
@@ -76,7 +76,24 @@ class TestClient:
             )
             assert len(measurements) == 5
 
-    async def test_get_measurements_with_sensor_metadata(self, client: OpenSenseMapClient):
+    @pytest.mark.parametrize(
+        "allowed_units,allowed_phenomena,expected_num_entries",
+        [
+            pytest.param(None, None, 10),
+            pytest.param({"°C"}, {"Temperatur"}, 5),
+            pytest.param({"°C"}, None, 5),
+            pytest.param(None, {"Temperatur"}, 5),
+            pytest.param({"°F"}, {"Temperatur"}, 0),
+            pytest.param({"°C"}, {"Luftdruck"}, 0),
+        ],
+    )
+    async def test_get_sensor_measurements_with_filter(
+        self,
+        client: OpenSenseMapClient,
+        allowed_units: Optional[set[str]],
+        allowed_phenomena: Optional[set[str]],
+        expected_num_entries: int,
+    ):
         with aioresponses() as mocked_api:
             mocked_api.get(
                 "https://api.opensensemap.org/boxes/621f53cdb527de001b06ad5e",
@@ -144,8 +161,10 @@ class TestClient:
                 "621f53cdb527de001b06ad5e",
                 from_date=_berlin.localize(datetime(2023, 12, 15, 9, 0, 0, 0)),
                 to_date=_berlin.localize(datetime(2023, 12, 15, 9, 5, 0, 0)),
+                allowed_units=allowed_units,
+                allowed_phenomena=allowed_phenomena,
             )
-            assert len(results) == 10
+            assert len(results) == expected_num_entries
             # assert the correct sensors are associated with their respective data
             assert all(3 > float(x.value) > 2 for x in results if x.unit == "°C")
             assert all(100 > float(x.value) > 99 for x in results if x.unit == "%")
