@@ -4,9 +4,11 @@ from typing import AsyncGenerator
 import pytest
 import pytz
 from aioresponses import aioresponses
+from pydantic_extra_types.coordinate import Coordinate, Latitude, Longitude
 
 from osemclient.client import OpenSenseMapClient
 
+from .example_payloads.leipzig_boxes import leipzig_boxes
 from .example_payloads.measurements import (
     measurements_621f53cdb527de001b06ad68_2023_12_15,
     measurements_621f53cdb527de001b06ad69_2023_12_15,
@@ -42,6 +44,21 @@ class TestClient:
             assert sensebox.id == "621f53cdb527de001b06ad5e"
             assert len(sensebox.sensors) == 11
             assert sensebox.current_location.coordinate is not None
+            assert sensebox.current_location.latitude == 51.340222
+            assert sensebox.current_location.longitude == 12.353332
+
+    async def test_get_senseboxes(self, client: OpenSenseMapClient):
+        with aioresponses() as mocked_api:
+            mocked_api.get(
+                "https://api.opensensemap.org/boxes?bbox=12.2749644,51.3152163,12.4925729,51.3794023&full=true",
+                status=200,
+                payload=leipzig_boxes,
+            )
+            senseboxes = await client.get_senseboxes(
+                southwest=Coordinate(longitude=Longitude(12.2749644), latitude=Latitude(51.3152163)),
+                northeast=Coordinate(longitude=Longitude(12.4925729), latitude=Latitude(51.3794023)),
+            )
+            assert any(senseboxes)
 
     async def test_get_sensor_measurements(self, client: OpenSenseMapClient):
         with aioresponses() as mocked_api:
