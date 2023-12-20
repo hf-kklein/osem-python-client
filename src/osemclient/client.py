@@ -1,5 +1,5 @@
 """
-This a docstring for the module.
+contains the OpenSenseMap client; the core of this library
 """
 import asyncio
 import logging
@@ -7,9 +7,10 @@ from datetime import datetime, timezone
 from typing import Awaitable, Optional
 
 from aiohttp import ClientSession, TCPConnector
+from pydantic_extra_types.coordinate import Coordinate
 from yarl import URL
 
-from osemclient.models import Box, Measurement, MeasurementWithSensorMetadata, _Measurements
+from osemclient.models import Box, Measurement, MeasurementWithSensorMetadata, _Boxes, _Measurements
 
 _logger = logging.getLogger(__name__)
 
@@ -43,6 +44,21 @@ class OpenSenseMapClient:
             result = Box(**await response.json())
             _logger.debug("Retrieved sensebox %s", sensebox_id)
             return result
+
+    async def get_senseboxes(self, southwest: Coordinate, northeast: Coordinate) -> list[Box]:
+        """
+        retrieves metadata of all senseboxes in the rectangle defined by southwest and northeast
+        """
+        query_params = {
+            # bbox is short for "bounding box"
+            "bbox": f"{southwest.longitude},{southwest.latitude},{northeast.longitude},{northeast.latitude}",
+            "full": "true",
+        }
+        url = _BASE_URL / "boxes" % query_params
+        async with self._session.get(url) as response:
+            result = _Boxes.model_validate(await response.json())
+            _logger.debug("Retrieved %d senseboxes", len(result.root))
+            return result.root
 
     async def get_sensor_measurements(
         self, sensebox_id: str, sensor_id: str, from_date: Optional[datetime] = None, to_date: Optional[datetime] = None

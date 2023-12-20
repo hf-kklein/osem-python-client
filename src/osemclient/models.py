@@ -31,7 +31,8 @@ class SensorMetadata(BaseModel):
     id: str = Field(alias="_id")  #: unique ID of this sensor; e.g. "621f53cdb527de001b06ad69"
     title: str  #: name of the sensor (or phenomenon in German, mostly)
     unit: str  #: unit of the measurement, e.g. "°C"
-    sensor_type: str = Field(alias="sensorType")  #: type of the sensor, e.g. "HDC1080"
+    sensor_type: Optional[str] = Field(alias="sensorType", default=None)  #: type of the sensor, e.g. "HDC1080"
+    # this is nullable because of https://github.com/sensebox/openSenseMap-API/issues/861
     icon: Optional[str] = None  #: the visual representation for the openSenseMap of this sensor
     last_measurement: Optional[Measurement] = Field(alias="lastMeasurement", default=None)
     """the latest measurement of one of the sensors of this senseBox"""
@@ -90,9 +91,10 @@ class Box(BaseModel):
     name: str  #: name of this senseBox
     exposure: str  #: the exposure of this senseBox, e.g. "outdoor"
     model: str  #: the model of this senseBox, e.g. "homeV2WifiFeinstaub"
-    last_measurement_at: datetime = Field(
-        alias="lastMeasurementAt"
+    last_measurement_at: Optional[datetime] = Field(
+        alias="lastMeasurementAt", default=None
     )  #: timestamp of the lastest measurement of one of the sensors of this senseBox
+    # nullable because of https://github.com/sensebox/openSenseMap-API/issues/862
     weblink: Optional[str] = None  #: external weblink
     description: Optional[str] = None  #: detailed description of the senseBox
     created_at: datetime = Field(alias="createdAt")  #: timestamp of the creation of the senseBox
@@ -101,6 +103,12 @@ class Box(BaseModel):
     image: Optional[str] = None  #: image showing the senseBox, e.g. '60a9114b6fedc6001b9ddd1d_qtk9d7.jpg'
     sensors: list[SensorMetadata]  #: list of sensors that are installed in this sensebox
     current_location: Location = Field(alias="currentLocation")  #: location of the senseBox
+
+
+class _Boxes(RootModel[list[Box]]):  # pylint:disable=too-few-public-methods
+    """
+    represents a list of boxes returned by the API
+    """
 
 
 class _Measurements(RootModel[list[Measurement]]):  # pylint:disable=too-few-public-methods
