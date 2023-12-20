@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 
 import pytest
 import pytz
@@ -7,6 +7,7 @@ from aioresponses import aioresponses
 from pydantic_extra_types.coordinate import Coordinate, Latitude, Longitude
 
 from osemclient.client import OpenSenseMapClient
+from osemclient.filtercriteria import SensorFilterCriteria
 
 from .example_payloads.leipzig_boxes import leipzig_boxes
 from .example_payloads.measurements import (
@@ -76,7 +77,24 @@ class TestClient:
             )
             assert len(measurements) == 5
 
-    async def test_get_measurements_with_sensor_metadata(self, client: OpenSenseMapClient):
+    @pytest.mark.parametrize(
+        "filter_criteria,expected_num_entries",
+        [
+            pytest.param(None, 10),
+            pytest.param(SensorFilterCriteria(), 10),
+            pytest.param(SensorFilterCriteria(allowed_units={"°C"}, allowed_phenomena={"Temperatur"}), 5),
+            pytest.param(SensorFilterCriteria(allowed_units={"°C"}, allowed_phenomena=None), 5),
+            pytest.param(SensorFilterCriteria(allowed_units=None, allowed_phenomena={"Temperatur"}), 5),
+            pytest.param(SensorFilterCriteria(allowed_units={"°F"}, allowed_phenomena={"Temperatur"}), 0),
+            pytest.param(SensorFilterCriteria(allowed_units={"°C"}, allowed_phenomena={"Luftdruck"}), 0),
+        ],
+    )
+    async def test_get_sensor_measurements_with_filter(
+        self,
+        client: OpenSenseMapClient,
+        filter_criteria: Optional[SensorFilterCriteria],
+        expected_num_entries: int,
+    ):
         with aioresponses() as mocked_api:
             mocked_api.get(
                 "https://api.opensensemap.org/boxes/621f53cdb527de001b06ad5e",
@@ -144,8 +162,9 @@ class TestClient:
                 "621f53cdb527de001b06ad5e",
                 from_date=_berlin.localize(datetime(2023, 12, 15, 9, 0, 0, 0)),
                 to_date=_berlin.localize(datetime(2023, 12, 15, 9, 5, 0, 0)),
+                sensor_filter_criteria=filter_criteria,
             )
-            assert len(results) == 10
+            assert len(results) == expected_num_entries
             # assert the correct sensors are associated with their respective data
             assert all(3 > float(x.value) > 2 for x in results if x.unit == "°C")
             assert all(100 > float(x.value) > 99 for x in results if x.unit == "%")

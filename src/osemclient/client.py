@@ -10,6 +10,7 @@ from aiohttp import ClientSession, TCPConnector
 from pydantic_extra_types.coordinate import Coordinate
 from yarl import URL
 
+from osemclient.filtercriteria import SensorFilterCriteria
 from osemclient.models import Box, Measurement, MeasurementWithSensorMetadata, _Boxes, _Measurements
 
 _logger = logging.getLogger(__name__)
@@ -55,6 +56,7 @@ class OpenSenseMapClient:
             "full": "true",
         }
         url = _BASE_URL / "boxes" % query_params
+        _logger.info("Downloading all boxes between %s and %s", southwest, northeast)
         async with self._session.get(url) as response:
             result = _Boxes.model_validate(await response.json())
             _logger.debug("Retrieved %d senseboxes", len(result.root))
@@ -85,14 +87,20 @@ class OpenSenseMapClient:
             return results.root
 
     async def get_measurements_with_sensor_metadata(
-        self, sensebox_id: str, from_date: Optional[datetime] = None, to_date: Optional[datetime] = None
+        self,
+        sensebox_id: str,
+        from_date: Optional[datetime] = None,
+        to_date: Optional[datetime] = None,
+        sensor_filter_criteria: Optional[SensorFilterCriteria] = None,
     ) -> list[MeasurementWithSensorMetadata]:
         """
         Returns all the box measurements in the given time range (or the APIs default if not specified).
         Other than the get_sensor_measurements method, to use this method you don't have to specify the sensor id.
         Also, the return values are annotated with the phenomenon measured.
+        You can also specify a list of allowed units and phenomena to filter the results.
         The result is not sorted in a specific way.
         """
+        sensor_filter: SensorFilterCriteria = sensor_filter_criteria or SensorFilterCriteria()
         box = await self.get_sensebox(sensebox_id=sensebox_id)
         sensor_tasks: list[Awaitable[list[Measurement]]] = [
             self.get_sensor_measurements(box.id, sensor.id, from_date=from_date, to_date=to_date)
@@ -106,6 +114,8 @@ class OpenSenseMapClient:
             )
             for sensor, sensor_measurement_list in zip(box.sensors, sensor_measurements)
             for measurement in sensor_measurement_list
+            if (sensor_filter.allowed_units is None or sensor.unit in sensor_filter.allowed_units)
+            and (sensor_filter.allowed_phenomena is None or sensor.title in sensor_filter.allowed_phenomena)
         ]
         return results
 
