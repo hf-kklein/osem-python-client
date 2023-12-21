@@ -1,5 +1,6 @@
 """the example from the readme"""
 import asyncio
+
 from osemclient.client import OpenSenseMapClient
 
 

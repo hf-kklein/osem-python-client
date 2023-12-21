@@ -118,7 +118,7 @@ class OpenSenseMapClient:
             number_of_measurements_yielded,
             len(api_request_urls),
             sensebox_id,
-            sensor_id
+            sensor_id,
         )
 
     async def get_measurements_with_sensor_metadata(
@@ -133,7 +133,8 @@ class OpenSenseMapClient:
         Other than the get_sensor_measurements method, to use this method you don't have to specify the sensor id.
         Also, the return values are annotated with the phenomenon measured.
         You can also specify a list of allowed units and phenomena to filter the results.
-        The result is not sorted in a specific way.
+        The result is not guaranteed to be sorted in any specific way, but you'll at least see chunks of data
+        originating from the same sensor.
         """
         sensor_filter: SensorFilterCriteria = sensor_filter_criteria or SensorFilterCriteria()
         box = await self.get_sensebox(sensebox_id=sensebox_id)
@@ -149,7 +150,7 @@ class OpenSenseMapClient:
             if sensor_filter.are_fulfilled_by(sensor)
         ]
         if not any(mm_generators):
-            _logger.info("No sensors match the critera for box '%s'", sensebox_id)
+            _logger.info("No sensors match the criteria for box '%s'", sensebox_id)
             return
         merged_metadata_measurement_generators = stream.merge(*mm_generators)
         async with merged_metadata_measurement_generators.stream() as measurements_with_metadata_stream:
