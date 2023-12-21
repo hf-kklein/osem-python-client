@@ -8,10 +8,9 @@ from typing import AsyncGenerator, Optional
 
 from aiohttp import ClientSession, TCPConnector
 from aiostream import stream
-from pydantic_extra_types.coordinate import Coordinate
 from yarl import URL
 
-from osemclient.filtercriteria import SensorFilterCriteria
+from osemclient.filtercriteria import BoundingBox, SensorFilterCriteria
 from osemclient.models import Box, Measurement, MeasurementWithSensorMetadata, SensorMetadata, _Boxes, _Measurements
 
 _logger = logging.getLogger(__name__)
@@ -57,17 +56,18 @@ class OpenSenseMapClient:
             _logger.debug("Retrieved sensebox %s", sensebox_id)
             return result
 
-    async def get_senseboxes_from_area(self, southwest: Coordinate, northeast: Coordinate) -> list[Box]:
+    async def get_senseboxes_from_area(self, bounding_box: BoundingBox) -> list[Box]:
         """
         retrieves metadata of all senseboxes in the rectangle defined by southwest and northeast
         """
         query_params = {
             # bbox is short for "bounding box"
-            "bbox": f"{southwest.longitude},{southwest.latitude},{northeast.longitude},{northeast.latitude}",
+            # pylint:disable=line-too-long
+            "bbox": f"{bounding_box.southwest.longitude},{bounding_box.southwest.latitude},{bounding_box.northeast.longitude},{bounding_box.northeast.latitude}",
             "full": "true",
         }
         url = _BASE_URL / "boxes" % query_params
-        _logger.info("Downloading all boxes between %s and %s", southwest, northeast)
+        _logger.info("Downloading all boxes between %s and %s", bounding_box.southwest, bounding_box.northeast)
         async with self._session.get(url) as response:
             result = _Boxes.model_validate(await response.json())
             _logger.debug("Retrieved %d senseboxes", len(result.root))
@@ -156,6 +156,36 @@ class OpenSenseMapClient:
         async with merged_metadata_measurement_generators.stream() as measurements_with_metadata_stream:
             async for measurement_with_metadata in measurements_with_metadata_stream:
                 yield measurement_with_metadata
+
+    async def get_measurements_from_area(
+        self,
+        bounding_box: BoundingBox,
+        from_date: Optional[datetime] = None,
+        to_date: Optional[datetime] = None,
+        sensor_filter_criteria: Optional[SensorFilterCriteria] = None,
+    ) -> AsyncGenerator[MeasurementWithSensorMetadata, None]:
+        """
+        Yields all the box measurements in the given time range (or the APIs default if not specified).
+        Other than the get_sensor_measurements method, to use this method you don't have to specify the sensor id.
+        Also, the return values are annotated with the phenomenon measured.
+        You can also specify a list of allowed units and phenomena to filter the results.
+        The result is not guaranteed to be sorted in any specific way, but you'll at least see chunks of data
+        originating from the same sensor.
+        """
+        boxes = await self.get_senseboxes_from_area(bounding_box)
+        measurements_from_boxes_generators = (
+            self.get_measurements_with_sensor_metadata(
+                from_date=from_date, to_date=to_date, sensor_filter_criteria=sensor_filter_criteria, sensebox_id=box.id
+            )
+            for box in boxes
+        )
+        distinct_box_ids_in_yielded_data: set[str] = set()
+        merged_mmfb_generators = stream.merge(*measurements_from_boxes_generators)
+        async with merged_mmfb_generators.stream() as mmfb_stream:
+            async for measurement_with_metadata in mmfb_stream:
+                yield measurement_with_metadata
+                distinct_box_ids_in_yielded_data.add(measurement_with_metadata.sensebox_id)
+        _logger.info("Yielded measurements from %d boxes in total", len(distinct_box_ids_in_yielded_data))
 
     async def close_session(self):
         """

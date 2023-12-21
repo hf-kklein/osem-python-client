@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import AsyncGenerator, Optional
 
 import pytest
@@ -7,7 +7,8 @@ from aioresponses import aioresponses
 from pydantic_extra_types.coordinate import Coordinate, Latitude, Longitude
 
 from osemclient.client import OpenSenseMapClient
-from osemclient.filtercriteria import SensorFilterCriteria
+from osemclient.filtercriteria import BoundingBox, SensorFilterCriteria
+from osemclient.models import Box, _Boxes, _Measurements
 
 from .example_payloads.leipzig_boxes import leipzig_boxes
 from .example_payloads.measurements import (
@@ -56,8 +57,10 @@ class TestClient:
                 payload=leipzig_boxes,
             )
             senseboxes = await client.get_senseboxes_from_area(
-                southwest=Coordinate(longitude=Longitude(12.2749644), latitude=Latitude(51.3152163)),
-                northeast=Coordinate(longitude=Longitude(12.4925729), latitude=Latitude(51.3794023)),
+                BoundingBox(
+                    southwest=Coordinate(longitude=Longitude(12.2749644), latitude=Latitude(51.3152163)),
+                    northeast=Coordinate(longitude=Longitude(12.4925729), latitude=Latitude(51.3794023)),
+                ),
             )
             assert any(senseboxes)
 
@@ -176,3 +179,53 @@ class TestClient:
             assert all(100 > float(x.value) > 99 for x in results if x.unit == "%")
             assert all(x.sensor_id == x.id for x in results)
             assert all(x.sensebox_id == "621f53cdb527de001b06ad5e" for x in results)
+
+    async def test_get_measurements_from_area(self, client):
+        # we monkey patch the two underlying client methods which have their own separate tests
+        # this saves us from having to mock the API with aioresponses twice
+
+        boxes_in_leipzig = _Boxes.model_validate(leipzig_boxes).root
+
+        async def return_leipzig_boxes(_):
+            return boxes_in_leipzig
+
+        box_ids_in_area = {b.id for b in boxes_in_leipzig}
+        client.get_senseboxes_from_area = return_leipzig_boxes
+
+        _bounding_box = BoundingBox(
+            southwest=Coordinate(longitude=Longitude(12.2749644), latitude=Latitude(51.3152163)),
+            northeast=Coordinate(longitude=Longitude(12.4925729), latitude=Latitude(51.3794023)),
+        )
+        example_box = Box.model_validate(single_box_621f53cdb527de001b06ad5e)
+
+        async def return_example_box(sensebox_id):  # pylint:disable=unused-argument
+            return example_box
+
+        client.get_sensebox = return_example_box
+        _from_date = datetime.utcnow().replace(tzinfo=timezone.utc)
+        _to_date = datetime.utcnow().replace(tzinfo=timezone.utc) + timedelta(hours=1)
+        _sensor_filter_criteria = SensorFilterCriteria()  # allowed_units={"°C"})
+        example_measurements = _Measurements.model_validate(measurements_621f53cdb527de001b06ad69_2023_12_15).root
+
+        async def return_measurements(  # pylint:disable=unused-argument
+            sensebox_id: str, sensor_id: str, from_date: Optional[datetime] = None, to_date: Optional[datetime] = None
+        ):
+            # we only assert that the args passed to this client function (tested elsewhere) are consistent with those
+            # which we to the function under test
+            assert from_date == _from_date
+            assert to_date == _to_date
+            assert (sensebox_id == example_box.id) or (sensebox_id in box_ids_in_area)
+            for m in example_measurements:
+                yield m
+
+        client.get_sensor_measurements = return_measurements
+        results = [
+            x
+            async for x in client.get_measurements_from_area(
+                from_date=_from_date,
+                to_date=_to_date,
+                bounding_box=_bounding_box,
+                sensor_filter_criteria=_sensor_filter_criteria,
+            )
+        ]
+        assert len(results) == len(boxes_in_leipzig) * len(example_measurements) * len(example_box.sensors)
