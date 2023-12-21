@@ -4,8 +4,11 @@ helper classes for filtering boxes and/or sensors
 from typing import Optional
 
 from pydantic import BaseModel
+from pydantic_extra_types.coordinate import Coordinate
 
 from osemclient.models import SensorMetadata
+
+# pylint:disable=too-few-public-methods
 
 
 class SensorFilterCriteria(BaseModel):
@@ -25,3 +28,21 @@ class SensorFilterCriteria(BaseModel):
         unit_is_ok = self.allowed_units is None or sensor.unit in self.allowed_units
         phenomenon_is_ok = self.allowed_phenomena is None or sensor.title in self.allowed_phenomena
         return unit_is_ok and phenomenon_is_ok
+
+
+class BoundingBox(BaseModel):
+    """
+    a bounding box defined by two coordinates
+    """
+
+    southwest: Coordinate
+    northeast: Coordinate
+
+
+class BoxFilterCriteria(BaseModel):
+    """
+    easy to use-representation of filters for senseboxes.
+    Its default values mean "no filter is applied".
+    """
+
+    bounding_box: Optional[BoundingBox] = None

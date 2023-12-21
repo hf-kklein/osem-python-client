@@ -7,7 +7,7 @@ from aioresponses import aioresponses
 from pydantic_extra_types.coordinate import Coordinate, Latitude, Longitude
 
 from osemclient.client import OpenSenseMapClient
-from osemclient.filtercriteria import SensorFilterCriteria
+from osemclient.filtercriteria import BoundingBox, SensorFilterCriteria
 
 from .example_payloads.leipzig_boxes import leipzig_boxes
 from .example_payloads.measurements import (
@@ -56,8 +56,10 @@ class TestClient:
                 payload=leipzig_boxes,
             )
             senseboxes = await client.get_senseboxes_from_area(
-                southwest=Coordinate(longitude=Longitude(12.2749644), latitude=Latitude(51.3152163)),
-                northeast=Coordinate(longitude=Longitude(12.4925729), latitude=Latitude(51.3794023)),
+                BoundingBox(
+                    southwest=Coordinate(longitude=Longitude(12.2749644), latitude=Latitude(51.3152163)),
+                    northeast=Coordinate(longitude=Longitude(12.4925729), latitude=Latitude(51.3794023)),
+                ),
             )
             assert any(senseboxes)
 

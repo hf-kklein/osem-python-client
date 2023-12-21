@@ -4,6 +4,7 @@ import asyncio
 from pydantic_extra_types.coordinate import Coordinate, Latitude, Longitude
 
 from osemclient.client import OpenSenseMapClient
+from osemclient.filtercriteria import BoundingBox
 
 
 async def get_recent_measurements(sensebox_id: str) -> None:
@@ -34,8 +35,10 @@ async def get_recent_measurements_in_leipzig_area() -> None:
         measurements = [
             m
             async for m in client.get_measurements_from_area(
-                southwest=Coordinate(latitude=Latitude(51.2763), longitude=Longitude(12.3336)),
-                northeast=Coordinate(latitude=Latitude(51.3992), longitude=Longitude(12.4306)),
+                BoundingBox(
+                    southwest=Coordinate(latitude=Latitude(51.2763), longitude=Longitude(12.3336)),
+                    northeast=Coordinate(latitude=Latitude(51.3992), longitude=Longitude(12.4306)),
+                ),
             )
         ]
         print(
