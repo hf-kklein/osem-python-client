@@ -19,7 +19,8 @@ classifiers = [
 dependencies = [
     "pydantic>=2.0.0", # for the model classes
     "pydantic-extra-types", # for lon/lat coordinates
-    "aiohttp"  # for the HTTP client
+    "aiohttp",  # for the HTTP client
+    "aiostream" # for merging and concurrently await and stream from several API requests
 ] # add all the dependencies from requirements.in here, too
 dynamic = ["readme", "version"]
 

@@ -69,12 +69,15 @@ class TestClient:
                 status=200,
                 payload=measurements_621f53cdb527de001b06ad69_2023_12_15,
             )
-            measurements = await client.get_sensor_measurements(
-                "621f53cdb527de001b06ad5e",
-                "621f53cdb527de001b06ad69",
-                from_date=_berlin.localize(datetime(2023, 12, 15, 9, 0, 0, 0)),
-                to_date=_berlin.localize(datetime(2023, 12, 15, 9, 5, 0, 0)),
-            )
+            measurements = [
+                x
+                async for x in client.get_sensor_measurements(
+                    "621f53cdb527de001b06ad5e",
+                    "621f53cdb527de001b06ad69",
+                    from_date=_berlin.localize(datetime(2023, 12, 15, 9, 0, 0, 0)),
+                    to_date=_berlin.localize(datetime(2023, 12, 15, 9, 5, 0, 0)),
+                )
+            ]
             assert len(measurements) == 5
 
     @pytest.mark.parametrize(
@@ -158,12 +161,15 @@ class TestClient:
                 status=200,
                 payload=measurements_621f53cdb527de001b06ad68_2023_12_15,
             )
-            results = await client.get_measurements_with_sensor_metadata(
-                "621f53cdb527de001b06ad5e",
-                from_date=_berlin.localize(datetime(2023, 12, 15, 9, 0, 0, 0)),
-                to_date=_berlin.localize(datetime(2023, 12, 15, 9, 5, 0, 0)),
-                sensor_filter_criteria=filter_criteria,
-            )
+            results = [
+                x
+                async for x in client.get_measurements_with_sensor_metadata(
+                    "621f53cdb527de001b06ad5e",
+                    from_date=_berlin.localize(datetime(2023, 12, 15, 9, 0, 0, 0)),
+                    to_date=_berlin.localize(datetime(2023, 12, 15, 9, 5, 0, 0)),
+                    sensor_filter_criteria=filter_criteria,
+                )
+            ]
             assert len(results) == expected_num_entries
             # assert the correct sensors are associated with their respective data
             assert all(3 > float(x.value) > 2 for x in results if x.unit == "°C")
