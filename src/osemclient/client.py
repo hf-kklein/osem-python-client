@@ -57,7 +57,7 @@ class OpenSenseMapClient:
             _logger.debug("Retrieved sensebox %s", sensebox_id)
             return result
 
-    async def get_senseboxes(self, southwest: Coordinate, northeast: Coordinate) -> list[Box]:
+    async def get_senseboxes_from_area(self, southwest: Coordinate, northeast: Coordinate) -> list[Box]:
         """
         retrieves metadata of all senseboxes in the rectangle defined by southwest and northeast
         """
