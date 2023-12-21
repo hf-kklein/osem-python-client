@@ -55,7 +55,7 @@ class TestClient:
                 status=200,
                 payload=leipzig_boxes,
             )
-            senseboxes = await client.get_senseboxes(
+            senseboxes = await client.get_senseboxes_from_area(
                 southwest=Coordinate(longitude=Longitude(12.2749644), latitude=Latitude(51.3152163)),
                 northeast=Coordinate(longitude=Longitude(12.4925729), latitude=Latitude(51.3794023)),
             )
