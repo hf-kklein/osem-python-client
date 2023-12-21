@@ -157,6 +157,37 @@ class OpenSenseMapClient:
             async for measurement_with_metadata in measurements_with_metadata_stream:
                 yield measurement_with_metadata
 
+    async def get_measurements_from_area(
+        self,
+        southwest: Coordinate,
+        northeast: Coordinate,
+        from_date: Optional[datetime] = None,
+        to_date: Optional[datetime] = None,
+        sensor_filter_criteria: Optional[SensorFilterCriteria] = None,
+    ) -> AsyncGenerator[MeasurementWithSensorMetadata, None]:
+        """
+        Yields all the box measurements in the given time range (or the APIs default if not specified).
+        Other than the get_sensor_measurements method, to use this method you don't have to specify the sensor id.
+        Also, the return values are annotated with the phenomenon measured.
+        You can also specify a list of allowed units and phenomena to filter the results.
+        The result is not guaranteed to be sorted in any specific way, but you'll at least see chunks of data
+        originating from the same sensor.
+        """
+        boxes = await self.get_senseboxes_from_area(southwest=southwest, northeast=northeast)
+        measurements_from_boxes_generators = (
+            self.get_measurements_with_sensor_metadata(
+                from_date=from_date, to_date=to_date, sensor_filter_criteria=sensor_filter_criteria, sensebox_id=box.id
+            )
+            for box in boxes
+        )
+        distinct_box_ids_in_yielded_data: set[str] = set()
+        merged_mmfb_generators = stream.merge(*measurements_from_boxes_generators)
+        async with merged_mmfb_generators.stream() as mmfb_stream:
+            async for measurement_with_metadata in mmfb_stream:
+                yield measurement_with_metadata
+                distinct_box_ids_in_yielded_data.add(measurement_with_metadata.sensebox_id)
+        _logger.info("Yielded measurements from %d boxes in total", len(distinct_box_ids_in_yielded_data))
+
     async def close_session(self):
         """
         closes the client session
