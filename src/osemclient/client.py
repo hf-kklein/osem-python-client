@@ -4,14 +4,15 @@ contains the OpenSenseMap client; the core of this library
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Awaitable, Optional
+from typing import AsyncGenerator, Optional
 
 from aiohttp import ClientSession, TCPConnector
+from aiostream import stream
 from pydantic_extra_types.coordinate import Coordinate
 from yarl import URL
 
 from osemclient.filtercriteria import SensorFilterCriteria
-from osemclient.models import Box, Measurement, MeasurementWithSensorMetadata, _Boxes, _Measurements
+from osemclient.models import Box, Measurement, MeasurementWithSensorMetadata, SensorMetadata, _Boxes, _Measurements
 
 _logger = logging.getLogger(__name__)
 
@@ -21,6 +22,16 @@ _BASE_URL = URL("https://api.opensensemap.org/")
 def _to_osem_dateformat(dt: datetime) -> str:
     # OSeM needs the post-decimal places in the ISO/RFC3339 format
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+
+async def _get_sensor_measurements_with_sensor_metadata(
+    box: Box, sensor: SensorMetadata, meas_gen: AsyncGenerator[Measurement, None]
+) -> AsyncGenerator[MeasurementWithSensorMetadata, None]:
+    # just a wrapper around another generator, to add the box and sensor metadata
+    async for measurement in meas_gen:
+        yield MeasurementWithSensorMetadata.model_validate(
+            {**sensor.model_dump(by_alias=True), **measurement.model_dump(by_alias=True), "senseboxId": box.id}
+        )
 
 
 class OpenSenseMapClient:
@@ -62,9 +73,19 @@ class OpenSenseMapClient:
             _logger.debug("Retrieved %d senseboxes", len(result.root))
             return result.root
 
+    async def _perform_measurements_request(self, url: URL) -> list[Measurement]:
+        _logger.debug("Starting download of measurements from %s", url)
+        try:
+            async with self._session.get(url) as response:
+                result = _Measurements.model_validate(await response.json())
+                _logger.debug("Retrieved %d measurements", len(result.root))
+                return result.root
+        finally:
+            _logger.debug("Finished downloading measurements from %s", url)
+
     async def get_sensor_measurements(
         self, sensebox_id: str, sensor_id: str, from_date: Optional[datetime] = None, to_date: Optional[datetime] = None
-    ) -> list[Measurement]:
+    ) -> AsyncGenerator[Measurement, None]:
         """
         retrieve measurements for the given box and sensor id
         """
@@ -79,12 +100,26 @@ class OpenSenseMapClient:
                 raise ValueError("to_date, if set, must not be naive")
             query_params["to-date"] = _to_osem_dateformat(to_date)
         url = url % query_params
-        async with self._session.get(url) as response:
-            results = _Measurements.model_validate(await response.json())
-            _logger.debug(
-                "Retrieved %i measurements for box %s and sensor %s", len(results.root), sensebox_id, sensor_id
-            )
-            return results.root
+        api_request_urls = [url]  # might be a list with >1 entry in the future
+        # The OSeM API only allows retrieving 10k measurements at once.
+        # So for large time spans, we have to send multiple requests and ideally run them concurrently instead of
+        # sequentially.
+        measurements_tasks = [self._perform_measurements_request(_url) for _url in api_request_urls]
+        number_of_measurements_yielded = 0
+        for measurements_task in asyncio.as_completed(measurements_tasks):
+            measurements = await measurements_task
+            for measurement in measurements:
+                yield measurement
+                number_of_measurements_yielded += 1
+                if number_of_measurements_yielded % 10_000 == 0:
+                    _logger.debug("Yielded %d measurements so far...", number_of_measurements_yielded)
+        _logger.info(
+            "Yielded %d measurements in total from %d requests of box %s and sensor %s",
+            number_of_measurements_yielded,
+            len(api_request_urls),
+            sensebox_id,
+            sensor_id
+        )
 
     async def get_measurements_with_sensor_metadata(
         self,
@@ -92,9 +127,9 @@ class OpenSenseMapClient:
         from_date: Optional[datetime] = None,
         to_date: Optional[datetime] = None,
         sensor_filter_criteria: Optional[SensorFilterCriteria] = None,
-    ) -> list[MeasurementWithSensorMetadata]:
+    ) -> AsyncGenerator[MeasurementWithSensorMetadata, None]:
         """
-        Returns all the box measurements in the given time range (or the APIs default if not specified).
+        Yields all the box measurements in the given time range (or the APIs default if not specified).
         Other than the get_sensor_measurements method, to use this method you don't have to specify the sensor id.
         Also, the return values are annotated with the phenomenon measured.
         You can also specify a list of allowed units and phenomena to filter the results.
@@ -102,22 +137,24 @@ class OpenSenseMapClient:
         """
         sensor_filter: SensorFilterCriteria = sensor_filter_criteria or SensorFilterCriteria()
         box = await self.get_sensebox(sensebox_id=sensebox_id)
-        sensor_tasks: list[Awaitable[list[Measurement]]] = [
-            self.get_sensor_measurements(box.id, sensor.id, from_date=from_date, to_date=to_date)
-            for sensor in box.sensors
-        ]
-        sensor_measurements = await asyncio.gather(*sensor_tasks)
-        _logger.debug("Retrieved %i measurement series for sensors of box %s", len(sensor_measurements), sensebox_id)
-        results = [
-            MeasurementWithSensorMetadata.model_validate(
-                {**sensor.dict(by_alias=True), **measurement.dict(by_alias=True), "senseboxId": box.id}
+        mm_generators = [
+            _get_sensor_measurements_with_sensor_metadata(
+                box,
+                sensor,
+                self.get_sensor_measurements(
+                    sensebox_id=sensebox_id, sensor_id=sensor.id, from_date=from_date, to_date=to_date
+                ),
             )
-            for sensor, sensor_measurement_list in zip(box.sensors, sensor_measurements)
-            for measurement in sensor_measurement_list
-            if (sensor_filter.allowed_units is None or sensor.unit in sensor_filter.allowed_units)
-            and (sensor_filter.allowed_phenomena is None or sensor.title in sensor_filter.allowed_phenomena)
+            for sensor in box.sensors
+            if sensor_filter.are_fulfilled_by(sensor)
         ]
-        return results
+        if not any(mm_generators):
+            _logger.info("No sensors match the critera for box '%s'", sensebox_id)
+            return
+        merged_metadata_measurement_generators = stream.merge(*mm_generators)
+        async with merged_metadata_measurement_generators.stream() as measurements_with_metadata_stream:
+            async for measurement_with_metadata in measurements_with_metadata_stream:
+                yield measurement_with_metadata
 
     async def close_session(self):
         """
