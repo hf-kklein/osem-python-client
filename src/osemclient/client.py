@@ -3,8 +3,8 @@ contains the OpenSenseMap client; the core of this library
 """
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import AsyncGenerator, Optional
+from datetime import datetime, timedelta, timezone
+from typing import AsyncGenerator, Generator, Optional
 
 from aiohttp import ClientSession, TCPConnector
 from aiostream import stream
@@ -17,10 +17,37 @@ _logger = logging.getLogger(__name__)
 
 _BASE_URL = URL("https://api.opensensemap.org/")
 
+_DEFAULT_WIDTH = timedelta(days=1)
+
 
 def _to_osem_dateformat(dt: datetime) -> str:
     # OSeM needs the post-decimal places in the ISO/RFC3339 format
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+
+def _get_start_end_slices(
+    from_date: datetime, to_date: datetime, width: timedelta
+) -> Generator[tuple[datetime, datetime], None, None]:
+    """
+    yields tuples of start and end dates, where each tuple represents a time slice of max width `width`.
+    The first and last slice will be smaller than `width` if `from_date` or `to_date` are not a multiple of `width`.
+    """
+    current_start = from_date
+    while current_start < to_date:
+        current_end = min(current_start + width, to_date)
+        yield current_start, current_end
+        current_start = current_end
+
+
+def _get_urls_in_date_range(
+    from_date: datetime, to_date: datetime, width: timedelta, sensebox_id: str, sensor_id: str
+) -> Generator[URL, None, None]:
+    url = _BASE_URL / "boxes" / sensebox_id / "data" / sensor_id
+    query_params: dict[str, str] = {"format": "json"}
+    for start_date, end_date in _get_start_end_slices(from_date=from_date, to_date=to_date, width=width):
+        query_params["from-date"] = _to_osem_dateformat(start_date)
+        query_params["to-date"] = _to_osem_dateformat(end_date)
+        yield url % query_params
 
 
 async def _get_sensor_measurements_with_sensor_metadata(
@@ -89,22 +116,41 @@ class OpenSenseMapClient:
         """
         retrieve measurements for the given box and sensor id
         """
-        url = _BASE_URL / "boxes" / sensebox_id / "data" / sensor_id
-        query_params: dict[str, str] = {"format": "json"}
         if from_date is not None:
             if from_date.tzinfo is None:
                 raise ValueError("from_date, if set, must not be naive")
-            query_params["from-date"] = _to_osem_dateformat(from_date)
         if to_date is not None:
             if to_date.tzinfo is None:
                 raise ValueError("to_date, if set, must not be naive")
-            query_params["to-date"] = _to_osem_dateformat(to_date)
-        url = url % query_params
-        api_request_urls = [url]  # might be a list with >1 entry in the future
+        _from_date: datetime
+        _to_date: datetime
+        if from_date is None and to_date is None:
+            _to_date = datetime.utcnow().replace(tzinfo=timezone.utc)
+            _from_date = _to_date - _DEFAULT_WIDTH
+        elif from_date is None:
+            _from_date = to_date - _DEFAULT_WIDTH
+            _to_date = to_date
+        elif to_date is None:
+            _from_date = from_date
+            _to_date = from_date + _DEFAULT_WIDTH
+        else:
+            _from_date = from_date
+            _to_date = to_date
+        del from_date  # just to prevent accidental use
+        del to_date
         # The OSeM API only allows retrieving 10k measurements at once.
-        # So for large time spans, we have to send multiple requests and ideally run them concurrently instead of
-        # sequentially.
-        measurements_tasks = [self._perform_measurements_request(_url) for _url in api_request_urls]
+        # We could try to derive the time span width from the measurement frequency, but it's easier to just always
+        # use a width of 1 day and merge the results.
+        measurements_tasks = [
+            self._perform_measurements_request(_url)
+            for _url in _get_urls_in_date_range(
+                from_date=_from_date,
+                to_date=_to_date,
+                width=_DEFAULT_WIDTH,
+                sensebox_id=sensebox_id,
+                sensor_id=sensor_id,
+            )
+        ]
         number_of_measurements_yielded = 0
         for measurements_task in asyncio.as_completed(measurements_tasks):
             measurements = await measurements_task
@@ -114,9 +160,8 @@ class OpenSenseMapClient:
                 if number_of_measurements_yielded % 10_000 == 0:
                     _logger.debug("Yielded %d measurements so far...", number_of_measurements_yielded)
         _logger.info(
-            "Yielded %d measurements in total from %d requests of box %s and sensor %s",
+            "Yielded %d measurements in total from box %s and sensor %s",
             number_of_measurements_yielded,
-            len(api_request_urls),
             sensebox_id,
             sensor_id,
         )

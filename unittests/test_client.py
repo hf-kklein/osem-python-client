@@ -83,6 +83,32 @@ class TestClient:
             ]
             assert len(measurements) == 5
 
+    async def test_get_sensor_measurements_across_multiple_days(self, client: OpenSenseMapClient):
+        total_count_of_measurements = len(measurements_621f53cdb527de001b06ad69_2023_12_15)
+        with aioresponses() as mocked_api:
+            mocked_api.get(
+                # pylint:disable=line-too-long
+                "https://api.opensensemap.org/boxes/621f53cdb527de001b06ad5e/data/621f53cdb527de001b06ad69?format=json&from-date=2023-12-15T08:00:00.000000Z&to-date=2023-12-16T08:00:00.000000Z",
+                status=200,
+                payload=measurements_621f53cdb527de001b06ad69_2023_12_15[0:2],
+            )
+            mocked_api.get(
+                # pylint:disable=line-too-long
+                "https://api.opensensemap.org/boxes/621f53cdb527de001b06ad5e/data/621f53cdb527de001b06ad69?format=json&from-date=2023-12-16T08:00:00.000000Z&to-date=2023-12-16T08:05:00.000000Z",
+                status=200,
+                payload=measurements_621f53cdb527de001b06ad69_2023_12_15[2:total_count_of_measurements],
+            )
+            measurements = [
+                x
+                async for x in client.get_sensor_measurements(
+                    "621f53cdb527de001b06ad5e",
+                    "621f53cdb527de001b06ad69",
+                    from_date=_berlin.localize(datetime(2023, 12, 15, 9, 0, 0, 0)),
+                    to_date=_berlin.localize(datetime(2023, 12, 16, 9, 5, 0, 0)),
+                )
+            ]
+            assert len(measurements) == total_count_of_measurements
+
     @pytest.mark.parametrize(
         "filter_criteria,expected_num_entries",
         [
@@ -229,3 +255,4 @@ class TestClient:
             )
         ]
         assert len(results) == len(boxes_in_leipzig) * len(example_measurements) * len(example_box.sensors)
+        assert all(x.unit is not None for x in results)
