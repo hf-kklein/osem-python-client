@@ -1,13 +1,12 @@
 """
 contains the OpenSenseMap client; the core of this library
 """
-import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import AsyncGenerator, Generator, Optional
 
 from aiohttp import ClientSession, TCPConnector
-from aiostream import stream
+from aiostream import pipe, stream
 from yarl import URL
 
 from osemclient.filtercriteria import BoundingBox, SensorFilterCriteria
@@ -65,12 +64,18 @@ class OpenSenseMapClient:
     An async HTTP client for OpenSenseMap REST API
     """
 
-    def __init__(self, limit_per_host: int = 10):
+    def __init__(self, limit_per_host: int = 10, number_of_concurrent_requests: int = 100):
         """
-        initializes the client and its session
+        initializes the client and its session.
+        The limit_per_host is a limit for the number of concurrent connections to the same host (aiohttp internal).
+        The number_of_concurrent_requests is the number of concurrent requests which this client sends to the OSeM API.
+        Change limit_per_host if the response time/internet connection is too slow.
+        Change number_of_concurrent_requests if you run into aiohttp timeouts because the pending requests cannot be
+        processed fast enough.
         """
         self._connector = TCPConnector(limit_per_host=limit_per_host)
         self._session = ClientSession(connector=self._connector, raise_for_status=True)
+        self._number_of_concurrent_requests = number_of_concurrent_requests  # started at once
         _logger.info("Initialized aiohttp session")
 
     async def get_sensebox(self, sensebox_id: str) -> Box:
@@ -100,13 +105,13 @@ class OpenSenseMapClient:
             _logger.debug("Retrieved %d senseboxes", len(result.root))
             return result.root
 
-    async def _perform_measurements_request(self, url: URL) -> list[Measurement]:
+    async def _perform_measurements_request(self, url: URL) -> AsyncGenerator[list[Measurement], None]:
         _logger.debug("Starting download of measurements from %s", url)
         try:
             async with self._session.get(url) as response:
                 result = _Measurements.model_validate(await response.json())
                 _logger.debug("Retrieved %d measurements", len(result.root))
-                return result.root
+                yield result.root
         finally:
             _logger.debug("Finished downloading measurements from %s", url)
 
@@ -143,7 +148,7 @@ class OpenSenseMapClient:
         # The OSeM API only allows retrieving 10k measurements at once.
         # We could try to derive the time span width from the measurement frequency, but it's easier to just always
         # use a width of 1 day and merge the results.
-        measurements_tasks = [
+        measurements_tasks = (
             self._perform_measurements_request(_url)
             for _url in _get_urls_in_date_range(
                 from_date=_from_date,
@@ -152,15 +157,19 @@ class OpenSenseMapClient:
                 sensebox_id=sensebox_id,
                 sensor_id=sensor_id,
             )
-        ]
+        )
+        measurements_chunks_streamer = stream.merge(*measurements_tasks) | pipe.chunks(
+            self._number_of_concurrent_requests
+        )  # todo: I thought you could use flatten here to unpack the chunks again but didn't get it working
         number_of_measurements_yielded = 0
-        for measurements_task in asyncio.as_completed(measurements_tasks):
-            measurements = await measurements_task
-            for measurement in measurements:
-                yield measurement
-                number_of_measurements_yielded += 1
-                if number_of_measurements_yielded % 10_000 == 0:
-                    _logger.debug("Yielded %d measurements so far...", number_of_measurements_yielded)
+        async with measurements_chunks_streamer.stream() as measurements_chunk_stream:
+            async for measurements_chunks in measurements_chunk_stream:
+                for measurements_chunk in measurements_chunks:
+                    for measurement in measurements_chunk:
+                        yield measurement
+                        number_of_measurements_yielded += 1
+                        if number_of_measurements_yielded % 10_000 == 0:
+                            _logger.debug("Yielded %d measurements so far...", number_of_measurements_yielded)
         _logger.info(
             "Yielded %d measurements in total from box %s and sensor %s",
             number_of_measurements_yielded,
