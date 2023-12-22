@@ -124,16 +124,18 @@ class OpenSenseMapClient:
                 raise ValueError("to_date, if set, must not be naive")
         _from_date: datetime
         _to_date: datetime
+        # We could build the following logic with less verbose if/elif/else clauses, but this way it's easier to
+        # understand and especially easier to understand for the type checker.
         if from_date is None and to_date is None:
             _to_date = datetime.utcnow().replace(tzinfo=timezone.utc)
             _from_date = _to_date - _DEFAULT_WIDTH
-        elif from_date is None:
+        elif from_date is None and to_date is not None:
             _from_date = to_date - _DEFAULT_WIDTH
             _to_date = to_date
-        elif to_date is None:
+        elif to_date is None and from_date is not None:
             _from_date = from_date
             _to_date = from_date + _DEFAULT_WIDTH
-        else:
+        elif from_date is not None and to_date is not None:
             _from_date = from_date
             _to_date = to_date
         del from_date  # just to prevent accidental use
