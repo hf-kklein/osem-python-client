@@ -24,11 +24,11 @@ multidict==6.0.4
     # via
     #   aiohttp
     #   yarl
-pydantic==2.5.2
+pydantic==2.5.3
     # via
     #   -r requirements.in
     #   pydantic-extra-types
-pydantic-core==2.14.5
+pydantic-core==2.14.6
     # via pydantic
 pydantic-extra-types==2.2.0
     # via -r requirements.in
