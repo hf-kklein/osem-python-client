@@ -30,7 +30,7 @@ pydantic==2.6.1
     #   pydantic-extra-types
 pydantic-core==2.16.2
     # via pydantic
-pydantic-extra-types==2.2.0
+pydantic-extra-types==2.5.0
     # via -r requirements.in
 typing-extensions==4.9.0
     # via
